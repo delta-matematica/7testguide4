@@ -78,6 +78,26 @@
 
     .result-name{font-size:clamp(2rem,3vw,3.2rem);font-weight:950;text-transform:uppercase;margin-top:14px}
     .result-number{margin-top:20px;font-size:clamp(5rem,10vw,9rem);color:#ffd75b;font-weight:950;line-height:.95}
+    .button-row{display:flex;gap:18px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:24px}
+    .sample-table{width:min(980px,100%);margin:10px auto 0;border-collapse:separate;border-spacing:0 6px;text-align:left}
+    .sample-table th{color:#8eeeff;font-size:.9rem;letter-spacing:1.2px;text-transform:uppercase;padding:4px 14px}
+    .sample-table td{background:rgba(2,13,31,.52);border-top:1px solid rgba(255,255,255,.14);border-bottom:1px solid rgba(255,255,255,.14);padding:8px 12px;font-size:.95rem;font-weight:800}
+    .sample-table td:first-child{border-left:1px solid rgba(255,255,255,.14);border-radius:18px 0 0 18px;color:#ffd75b}
+    .sample-table td:last-child{border-right:1px solid rgba(255,255,255,.14);border-radius:0 18px 18px 0}
+    .lock-pill{display:inline-block;padding:5px 10px;border-radius:999px;background:rgba(255,155,155,.14);border:1px solid rgba(255,155,155,.38);color:#ffb6b6;font-size:.82rem;font-weight:900}
+    .unlock-pill{display:inline-block;padding:5px 10px;border-radius:999px;background:rgba(142,238,255,.14);border:1px solid rgba(142,238,255,.38);color:#8eeeff;font-size:.82rem;font-weight:900}
+    .status-done{color:#8eeeff;font-weight:950}
+    .status-not{color:rgba(255,255,255,.72);font-weight:800}
+    .unlock-box{width:min(760px,100%);margin:8px auto 0;display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap}
+    .unlock-box input{width:min(280px,100%);padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.24);outline:0;background:rgba(2,13,31,.55);color:white;font-size:.95rem;font-weight:800;text-align:center;text-transform:uppercase}
+    .sample-card{padding:22px 32px!important}
+    .sample-card h2{font-size:clamp(1.8rem,2.6vw,2.8rem);margin-bottom:6px}
+    .sample-card .note{font-size:.92rem;line-height:1.35;margin-top:8px}
+    .sample-card .nav-button,.sample-card .submit-button{padding:9px 18px;font-size:.85rem}
+    .sample-card .match-select{padding:9px 12px;font-size:.9rem}
+    .sample-table .nav-button{padding:8px 16px;font-size:.82rem;min-width:150px}
+
+
 
     @media(max-width:900px){
       body{overflow:auto}
@@ -93,12 +113,14 @@
 <body>
   <main class="screen" id="app"></main>
   <script>
-    const GOOGLE_SCRIPT_URL="";
+    const GOOGLE_SCRIPT_URL="https://script.google.com/macros/s/AKfycbyw8B6G4Cepb3AKidxVsMs2rhkr9Z7QdG0MzsGi32zhUo_YQ2iL7aLJosECMdy7l4Em/exec";
     const M=s=>`$${s}$`;
     const FR=(a,b)=>`\\frac{${a}}{${b}}`;
 
     let studentInfo={firstName:"",lastName:""};
     let current=0, answers=[], floatingTimer=null;
+    let activeSampleTest=null;
+    let selectedStudentName=localStorage.getItem("selectedStudentName")||"";
 
     let questions=[
       {type:"matching",q:"Match each verbal phrase with the correct algebraic expression.",prompts:["Twice a number x added to 3","Five more than a number x","A number x decreased by 7","Three times a number x","Half of a number x"],choices:[["A",M("3x")],["B",M(FR("x","2"))],["C",M("2x+3")],["D",M("x-7")],["E",M("x+5")]],answer:["C","E","D","A","B"]},
@@ -152,8 +174,97 @@
     }
 
     function renderOpening(){
-      app.innerHTML=`${bgHTML()}<section class="card"><div class="top-label">7° Grade Mathematics</div><h1>Algebra<span class="title-highlight">Practice Test</span></h1><p class="subtitle">Strengthen your algebra skills through variables, expressions, equations, substitution, models, and geometry word problems.</p><div class="info-row"><div class="info-box"><span>Level</span>Grade 7</div><div class="info-box"><span>Questions</span>25</div><div class="info-box"><span>Format</span>Practice Test</div></div><button class="start-button" onclick="beginTest()">Start Test</button></section>`;
+      app.innerHTML=`${bgHTML()}<section class="card"><div class="top-label">7° Grade Mathematics</div><h1>Algebra<span class="title-highlight">Practice Test</span></h1><p class="subtitle">Strengthen your algebra skills through variables, expressions, equations, substitution, models, and geometry word problems.</p><div class="info-row"><div class="info-box"><span>Level</span>Grade 7</div><div class="info-box"><span>Questions</span>25</div><div class="info-box"><span>Format</span>Practice Test</div></div><div class="button-row"><button class="start-button" onclick="activeSampleTest=null;beginTest()">Go to Practice Test</button><button class="start-button" onclick="renderSampleTests()">Sample Test with Decimal Point</button></div></section>`;
       startFloat();
+    }
+
+    const studentNames=["APABLAZA","BRONDA","BURGOS","CAMPE","DE OLIVEIRA","DIAZ","GARCIA","GODOY","GUZMAN","LABARCA","LAFERTE","LAURY","LY","MIRANDA","ORTEGA","OYARZUN","QUIROZ","SALAZAR","SALFATE","SALVO","TORRES","VERDUGO","VICENT"];
+
+    function studentKeyName(){
+      return selectedStudentName.replace(/\s+/g,"_");
+    }
+
+    function sampleCompletedKey(n){
+      return "sampleTest"+n+"Completed_"+studentKeyName();
+    }
+
+    function sampleDateKey(n){
+      return "sampleTest"+n+"Date_"+studentKeyName();
+    }
+
+    function sampleScoreKey(n){
+      return "sampleTest"+n+"Score_"+studentKeyName();
+    }
+
+    function getSampleScore(n){
+      const value=localStorage.getItem(sampleScoreKey(n));
+      return value===null?"":value;
+    }
+
+    function getSampleAverage(){
+      const scores=[1,2,3,4,5].map(n=>Number(localStorage.getItem(sampleScoreKey(n)))).filter(v=>!Number.isNaN(v));
+      if(!scores.length) return "";
+      return Math.round((scores.reduce((a,b)=>a+b,0)/scores.length)*100)/100;
+    }
+
+    function submitSampleSummary(){
+      if(!selectedStudentName||!GOOGLE_SCRIPT_URL) return;
+      const payload={
+        type:"sampleSummary",
+        name:selectedStudentName,
+        sampleTest1:getSampleScore(1),
+        sampleTest2:getSampleScore(2),
+        sampleTest3:getSampleScore(3),
+        sampleTest4:getSampleScore(4),
+        sampleTest5:getSampleScore(5),
+        average:getSampleAverage()
+      };
+      try{
+        fetch(GOOGLE_SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      }catch(e){
+        console.error("Sample summary submission failed:",e);
+      }
+    }
+
+    function renderSampleTests(){
+      const options=['<option value="">SELECT NAME</option>'].concat(studentNames.map(name=>`<option value="${name}" ${selectedStudentName===name?'selected':''}>${name}</option>`)).join("");
+      const rows=[1,2,3,4,5].map(n=>{
+        const done=selectedStudentName&&localStorage.getItem(sampleCompletedKey(n))==="true";
+        const date=selectedStudentName?(localStorage.getItem(sampleDateKey(n))||"—"):"—";
+        const status=done?'<span class="status-done">Completed</span>':'<span class="status-not">Not Completed</span>';
+        return `<tr><td><button class="nav-button" onclick="startSampleTest(${n})">Sample Test ${n}</button></td><td>${date}</td><td>${status}</td></tr>`;
+      }).join("");
+      app.innerHTML=`${bgHTML()}<section class="card sample-card"><div class="top-label">Sample Test with Decimal Point</div><h2>Sample Test Menu</h2><div class="unlock-box"><select id="studentNameSelect" class="match-select" onchange="setSelectedStudentName(this.value)" style="width:min(360px,100%)">${options}</select></div><table class="sample-table"><thead><tr><th>Sample Test</th><th>Date</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><p class="note">Choose a student name first, then open a sample test. The date and status will be saved for that student.</p><div class="button-row"><button class="nav-button" onclick="renderOpening()">Back Home</button></div></section>`;
+      startFloat();
+    }
+
+    function setSelectedStudentName(name){
+      selectedStudentName=name;
+      localStorage.setItem("selectedStudentName",name);
+      renderSampleTests();
+    }
+
+    function startSampleTest(n){
+      if(!selectedStudentName){
+        alert("Please select a student name first.");
+        return;
+      }
+      if(localStorage.getItem(sampleCompletedKey(n))==="true"){
+        alert("This sample test has already been completed. It cannot be repeated.");
+        return;
+      }
+      renderSampleTestIntro(n);
+    }
+
+    function renderSampleTestIntro(n){
+      app.innerHTML=`${bgHTML()}<section class="card"><div class="top-label">Sample Test ${n}</div><h2>Before You Begin</h2><div class="instruction-box"><h3>Important Reminder</h3><ul><li>Read each question carefully before choosing your answer.</li><li>You can move back and next while working on the test.</li><li>Once you submit this sample test, it will be marked as completed.</li><li>This sample test cannot be repeated.</li></ul></div><div class="button-row"><button class="submit-button" onclick="beginSampleTest(${n})">Begin Sample Test ${n}</button><button class="nav-button" onclick="renderSampleTests()">Back</button></div></section>`;
+      startFloat();
+    }
+
+    function beginSampleTest(n){
+      activeSampleTest=n;
+      if(n>1) questions=makeTryAgainQuestions();
+      beginTest();
     }
 
     function beginTest(){
@@ -166,7 +277,7 @@
     function renderQuestion(){
       const q=questions[current], ans=answers[current];
       const answered=questions.filter((x,i)=>isAnswered(x,answers[i])).length;
-      app.innerHTML=`${bgHTML()}<section class="card test-card"><div class="test-header"><div><div class="question-count">Question ${current+1} of ${questions.length}</div><div class="note" style="margin:4px 0 0">Answered: ${answered} of ${questions.length}</div></div></div><div class="test-layout"><div class="question-panel"><div class="panel-label">Question</div>${renderQuestionPanel(q,ans)}</div><div class="choices-panel"><div class="panel-label">Answer Area</div>${renderAnswerPanel(q,ans)}</div></div><div class="test-nav"><button class="nav-button" onclick="move(-1)" ${current===0?"disabled":""}>Back</button><button class="nav-button" onclick="move(1)" ${current===questions.length-1?"disabled":""}>Next</button><button class="submit-button" onclick="submitTest()">Submit</button></div><div class="progress-strip">${questions.map((q,i)=>`<button class="progress-dot ${isAnswered(q,answers[i])?"answered":""} ${i===current?"active":""}" onclick="go(${i})">${i+1}</button>`).join("")}</div></section>`;
+      app.innerHTML=`${bgHTML()}<section class="card test-card"><div class="test-header"><div><div class="question-count">Question ${current+1} of ${questions.length}</div><div class="note" style="margin:4px 0 0">Answered: ${answered} of ${questions.length}</div></div></div><div class="test-layout"><div class="question-panel"><div class="panel-label">Question</div>${renderQuestionPanel(q,ans)}</div><div class="choices-panel"><div class="panel-label">Answer Area</div>${renderAnswerPanel(q,ans)}</div></div><div class="test-nav"><button class="nav-button" onclick="renderOpening()">Home</button><button class="nav-button" onclick="move(-1)" ${current===0?"disabled":""}>Back</button><button class="nav-button" onclick="move(1)" ${current===questions.length-1?"disabled":""}>Next</button><button class="submit-button" onclick="submitTest()">Submit</button></div><div class="progress-strip">${questions.map((q,i)=>`<button class="progress-dot ${isAnswered(q,answers[i])?"answered":""} ${i===current?"active":""}" onclick="go(${i})">${i+1}</button>`).join("")}</div></section>`;
       startFloat();
       typeset();
     }
@@ -241,15 +352,28 @@
       startFloat();
     }
 
+    function sampleResultButtons(){
+      const next=activeSampleTest+1;
+      if(next<=5){
+        return `<button class="small-button" onclick="startSampleTest(${next})">Proceed to Sample Test ${next}</button><button class="nav-button" onclick="renderOpening()">Home</button>`;
+      }
+      return `<button class="nav-button" onclick="renderOpening()">Home</button>`;
+    }
+
     function finalSubmit(){
       const score=questions.reduce((s,q,i)=>s+(isCorrect(q,answers[i])?1:0),0);
       const pct=Math.round(score/questions.length*100);
+      if(activeSampleTest&&selectedStudentName){
+        localStorage.setItem(sampleCompletedKey(activeSampleTest),"true");
+        localStorage.setItem(sampleDateKey(activeSampleTest),new Date().toLocaleDateString());
+        localStorage.setItem(sampleScoreKey(activeSampleTest),String(pct));
+        submitSampleSummary();
+      }
       submitScore(score,pct);
       const remark=pct>=70?"CONGRATULATIONS":"TRY AGAIN";
       const color=pct>=70?"#ffd75b":"#ff9b9b";
-      app.innerHTML=`${bgHTML()}<section class="card"><div class="top-label">Result</div><div class="result-name">Practice Test Result</div><div class="result-number">${score} / ${questions.length}</div><p class="note" style="font-size:2rem!important;font-weight:950;color:#8eeeff">Percentage: ${pct}%</p><p class="note" style="font-size:2.5rem!important;font-weight:950;color:${color};letter-spacing:1.5px;text-transform:uppercase">${remark}</p><div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:24px">
-        <button class="small-button" onclick="tryAgain()">Try Again</button>
-        <button class="nav-button" onclick="renderOpening()">Home</button>
+      app.innerHTML=`${bgHTML()}<section class="card"><div class="top-label">Result</div><div class="result-name">Practice Test Result</div><div class="result-number">${score} / ${questions.length}</div><p class="note" style="font-size:2rem!important;font-weight:950;color:#8eeeff">Percentage: ${pct}%</p><p class="note" style="font-size:2.5rem!important;font-weight:950;color:${color};letter-spacing:1.5px;text-transform:uppercase">${remark}</p><div id="resultButtons" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:24px">
+        ${activeSampleTest ? sampleResultButtons() : `<button class="small-button" onclick="tryAgain()">Try Again</button><button class="nav-button" onclick="renderOpening()">Home</button>`}
       </div></section>`;
       startFloat();
     }
