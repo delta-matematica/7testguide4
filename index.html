@@ -113,7 +113,7 @@
 <body>
   <main class="screen" id="app"></main>
   <script>
-    const GOOGLE_SCRIPT_URL="https://script.google.com/macros/s/AKfycbyw8B6G4Cepb3AKidxVsMs2rhkr9Z7QdG0MzsGi32zhUo_YQ2iL7aLJosECMdy7l4Em/exec";
+    const GOOGLE_SCRIPT_URL="";
     const M=s=>`$${s}$`;
     const FR=(a,b)=>`\\frac{${a}}{${b}}`;
 
@@ -121,6 +121,25 @@
     let current=0, answers=[], floatingTimer=null;
     let activeSampleTest=null;
     let selectedStudentName=localStorage.getItem("selectedStudentName")||"";
+    let seededRandomState=null;
+
+    function setFixedSeed(seed){
+      seededRandomState=seed;
+    }
+
+    function clearFixedSeed(){
+      seededRandomState=null;
+    }
+
+    function random01(){
+      if(seededRandomState===null) return Math.random();
+      seededRandomState=(seededRandomState*9301+49297)%233280;
+      return seededRandomState/233280;
+    }
+
+    function cloneQuestions(qs){
+      return JSON.parse(JSON.stringify(qs));
+    }
 
     let questions=[
       {type:"matching",q:"Match each verbal phrase with the correct algebraic expression.",prompts:["Twice a number x added to 3","Five more than a number x","A number x decreased by 7","Three times a number x","Half of a number x"],choices:[["A",M("3x")],["B",M(FR("x","2"))],["C",M("2x+3")],["D",M("x-7")],["E",M("x+5")]],answer:["C","E","D","A","B"]},
@@ -150,6 +169,8 @@
       {type:"mc",q:`Twice a number ${M("x")} added to ${M("5")} is ${M("19")}. Find the number.`,choices:[M("5"),M("6"),M("7"),M("8")],answer:M("7")}
     ];
 
+    const originalQuestions=cloneQuestions(questions);
+
     function bgHTML(){
       return `<div class="bg" id="bg"><div class="grid"></div><div class="stream" style="top:18%;font-size:2.2rem">x + 7 = 15 &nbsp;&nbsp; 3a - 5 = 10 &nbsp;&nbsp; y = 2x + 1 &nbsp;&nbsp;</div><div class="stream" style="top:74%;font-size:1.8rem;animation-direction:reverse">2x = 18 &nbsp;&nbsp; p ÷ 4 = 6 &nbsp;&nbsp; n - 12 = 9 &nbsp;&nbsp;</div><div class="orb" style="width:260px;height:260px;top:8%;left:12%"></div><div class="orb" style="width:340px;height:340px;bottom:2%;right:8%"></div></div><div class="footer">© 2026 Delta Matemática | Luis Ramos Jr. All Rights Reserved.</div>`;
     }
@@ -174,7 +195,7 @@
     }
 
     function renderOpening(){
-      app.innerHTML=`${bgHTML()}<section class="card"><div class="top-label">7° Grade Mathematics</div><h1>Algebra<span class="title-highlight">Practice Test</span></h1><p class="subtitle">Strengthen your algebra skills through variables, expressions, equations, substitution, models, and geometry word problems.</p><div class="info-row"><div class="info-box"><span>Level</span>Grade 7</div><div class="info-box"><span>Questions</span>25</div><div class="info-box"><span>Format</span>Practice Test</div></div><div class="button-row"><button class="start-button" onclick="activeSampleTest=null;beginTest()">Go to Practice Test</button><button class="start-button" onclick="renderSampleTests()">Sample Test with Decimal Point</button></div></section>`;
+      app.innerHTML=`${bgHTML()}<section class="card"><div class="top-label">7° Grade Mathematics</div><h1>Algebra<span class="title-highlight">Practice Test</span></h1><p class="subtitle">Strengthen your algebra skills through variables, expressions, equations, substitution, models, and geometry word problems.</p><div class="info-row"><div class="info-box"><span>Level</span>Grade 7</div><div class="info-box"><span>Questions</span>25</div><div class="info-box"><span>Format</span>Practice Test</div></div><div class="button-row"><button class="start-button" onclick="activeSampleTest=null;questions=cloneQuestions(originalQuestions);beginTest()">Go to Practice Test</button><button class="start-button" onclick="renderSampleTests()">Sample Test with Decimal Point</button></div></section>`;
       startFloat();
     }
 
@@ -232,7 +253,9 @@
         const done=selectedStudentName&&localStorage.getItem(sampleCompletedKey(n))==="true";
         const date=selectedStudentName?(localStorage.getItem(sampleDateKey(n))||"—"):"—";
         const status=done?'<span class="status-done">Completed</span>':'<span class="status-not">Not Completed</span>';
-        return `<tr><td><button class="nav-button" onclick="startSampleTest(${n})">Sample Test ${n}</button></td><td>${date}</td><td>${status}</td></tr>`;
+        const previousDone=n===1 || (selectedStudentName&&localStorage.getItem(sampleCompletedKey(n-1))==="true");
+        const buttonLabel=previousDone?`Sample Test ${n}`:`Sample Test ${n} - Locked`;
+        return `<tr><td><button class="nav-button" onclick="startSampleTest(${n})">${buttonLabel}</button></td><td>${date}</td><td>${status}</td></tr>`;
       }).join("");
       app.innerHTML=`${bgHTML()}<section class="card sample-card"><div class="top-label">Sample Test with Decimal Point</div><h2>Sample Test Menu</h2><div class="unlock-box"><select id="studentNameSelect" class="match-select" onchange="setSelectedStudentName(this.value)" style="width:min(360px,100%)">${options}</select></div><table class="sample-table"><thead><tr><th>Sample Test</th><th>Date</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><p class="note">Choose a student name first, then open a sample test. The date and status will be saved for that student.</p><div class="button-row"><button class="nav-button" onclick="renderOpening()">Back Home</button></div></section>`;
       startFloat();
@@ -249,6 +272,10 @@
         alert("Please select a student name first.");
         return;
       }
+      if(n>1 && localStorage.getItem(sampleCompletedKey(n-1))!=="true"){
+        alert("You must complete Sample Test "+(n-1)+" before opening Sample Test "+n+".");
+        return;
+      }
       if(localStorage.getItem(sampleCompletedKey(n))==="true"){
         alert("This sample test has already been completed. It cannot be repeated.");
         return;
@@ -261,9 +288,17 @@
       startFloat();
     }
 
+    function getFixedSampleQuestions(n){
+      if(n===1) return cloneQuestions(originalQuestions);
+      setFixedSeed(7000+n*137);
+      const fixedSet=makeTryAgainQuestions();
+      clearFixedSeed();
+      return fixedSet;
+    }
+
     function beginSampleTest(n){
       activeSampleTest=n;
-      if(n>1) questions=makeTryAgainQuestions();
+      questions=getFixedSampleQuestions(n);
       beginTest();
     }
 
@@ -399,7 +434,7 @@
         {a:2,b:9,x:8,phrase:"Twice a number"},
         {a:3,b:7,x:5,phrase:"Three times a number"}
       ];
-      const p=options[Math.floor(Math.random()*options.length)];
+      const p=options[Math.floor(random01()*options.length)];
       const total=p.a*p.x+p.b;
       const wrongs=new Set([p.x,p.x+1,Math.max(1,p.x-1),p.x+2]);
       const choices=Array.from(wrongs).slice(0,4).sort((m,n)=>m-n).map(n=>M(String(n)));
@@ -416,7 +451,7 @@
         {balanceData:{leftX:3,leftOnes:2,rightBig:[4,4,4],rightOnes:2},choices:[M("3x+2=14"),M("3x-2=14"),M("2x+3=14"),M("x+2=14")],answer:M("3x+2=14")},
         {balanceData:{leftX:2,leftOnes:1,rightBig:[4,4],rightOnes:1},choices:[M("2x+1=9"),M("2x-1=9"),M("x+2=9"),M("4x+1=9")],answer:M("2x+1=9")}
       ];
-      return options[Math.floor(Math.random()*options.length)];
+      return options[Math.floor(random01()*options.length)];
     }
 
     function makeTryAgainQuestions(){
@@ -465,7 +500,7 @@
 
     function rand(min,max,step=1){
       const count=Math.floor((max-min)/step)+1;
-      return min+step*Math.floor(Math.random()*count);
+      return min+step*Math.floor(random01()*count);
     }
 
     function tryAgain(){
